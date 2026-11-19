@@ -41,16 +41,66 @@ async function waitCaptcha(page, job) {
   throw new Stop('Vérification anti-robot non résolue.');
 }
 
+
+const ERR_RE = /(une erreur est survenue|something went wrong|réessayer plus tard|try again later)/i;
+async function hasError(page) {
+  const t = await page.evaluate(() => document.body.innerText.slice(0, 3000)).catch(() => '');
+  return ERR_RE.test(t);
+}
+async function needsLogin(page) {
+  return !!(await page.$('[data-e2e="nav-login-button"], [data-e2e="top-login-button"], button:has-text("Se connecter"), button:has-text("Log in")').catch(() => null));
+}
+async function ensureTikTok(page, url, job) {
+  for (let i = 0; i < 3; i++) {
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await sleep(4000);
+    await waitCaptcha(page, job);
+    if (!(await hasError(page))) return;
+    await sleep(3000 + i * 2000);
+  }
+  if (await needsLogin(page)) {
+    await setJob(job.id, { message: 'TikTok bloque sans connexion : connecte-toi dans la fenêtre avec un compte secondaire. La session sera gardée.' });
+    for (let i = 0; i < 80; i++) { await sleep(3000); if (!(await needsLogin(page))) break; }
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    await sleep(4000);
+    if (!(await hasError(page))) return;
+  }
+  throw new Stop('TikTok affiche une erreur pour ce hashtag (accès bloqué). Réessaie plus tard ou connecte-toi dans la fenêtre.');
+}
+
+async function collectLinks(page, handles) {
+  const hrefs = await page.$$eval('a[href*="/@"]', as => as.map(a => a.getAttribute('href')));
+  for (const h of hrefs) { const m = (h || '').match(/\/@([\w.]+)/); if (m) handles.add(m[1]); }
+}
+
 async function tiktokHandles(page, tag, wanted, job) {
-  await page.goto(`https://www.tiktok.com/tag/${encodeURIComponent(tag)}`, { waitUntil: 'domcontentloaded' });
-  await sleep(4000);
-  await waitCaptcha(page, job);
+  const url = `https://www.tiktok.com/tag/${encodeURIComponent(tag)}`;
+  await ensureTikTok(page, url, job);
   const handles = new Set();
+  await sleep(4000);
+  await collectLinks(page, handles);
+  if (handles.size === 0) {
+    // Rien d'affiché : probablement une connexion est demandée. On laisse la fenêtre ouverte.
+    log(`#${tag} : aucune vidéo visible. Connecte-toi à TikTok dans la fenêtre (compte secondaire).`);
+    await setJob(job.id, { message: `#${tag} : aucune vidéo visible → connecte-toi à TikTok dans la fenêtre ouverte (5 min max)` });
+    const end = Date.now() + 300000;
+    while (Date.now() < end && handles.size === 0) {
+      if (await cancelled(job.id)) throw new Stop('Annulé');
+      await sleep(5000);
+      await collectLinks(page, handles);
+      if (handles.size === 0 && !page.url().includes('/tag/') && !page.url().includes('login')) {
+        await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {}); await sleep(4000);
+      }
+    }
+    if (handles.size === 0) {
+      await page.screenshot({ path: 'debug-tiktok.png' }).catch(() => {});
+      throw new Stop(`TikTok n'affiche aucune vidéo pour #${tag} (connexion requise ?). Capture : worker/debug-tiktok.png`);
+    }
+  }
   for (let i = 0; i < 12 && handles.size < wanted; i++) {
-    const hrefs = await page.$$eval('a[href*="/@"]', as => as.map(a => a.getAttribute('href')));
-    for (const h of hrefs) { const m = (h || '').match(/\/@([\w.]+)/); if (m) handles.add(m[1]); }
     await page.mouse.wheel(0, 2500);
     await sleep(rand(1500, 2800));
+    await collectLinks(page, handles);
   }
   return [...handles];
 }
@@ -59,6 +109,12 @@ async function tiktokProfile(page, handle, job) {
   await page.goto(`https://www.tiktok.com/@${handle}`, { waitUntil: 'domcontentloaded' });
   await sleep(rand(2000, 3500));
   await waitCaptcha(page, job);
+  if (await hasError(page)) {
+    await sleep(3000);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await sleep(3500);
+    if (await hasError(page)) return null;
+  }
   const d = await page.evaluate(() => {
     const el = document.getElementById('__UNIVERSAL_DATA_FOR_REHYDRATION__');
     if (el) {
@@ -117,7 +173,10 @@ async function runJob(job) {
   const tags = splitKeywords(job.query);
   const seen = await existingUrls();
   let found = 0, added = 0;
-  const ctx = await chromium.launchPersistentContext(path.join(dir, 'browser-profile'), { headless: HEADLESS === '1', viewport: { width: 1280, height: 860 }, locale: 'fr-FR' });
+  const opts = { headless: HEADLESS === '1', viewport: { width: 1280, height: 860 }, locale: 'fr-FR' };
+  let ctx;
+  try { ctx = await chromium.launchPersistentContext(path.join(dir, 'browser-profile-chrome'), { ...opts, channel: 'chrome' }); }
+  catch { log('Chrome introuvable, utilisation de Chromium.'); ctx = await chromium.launchPersistentContext(path.join(dir, 'browser-profile'), opts); }
   const page = ctx.pages()[0] || await ctx.newPage();
   try {
     if (job.platform === 'instagram') await igEnsureLogin(page, job);
@@ -152,6 +211,7 @@ async function runJob(job) {
     await setJob(job.id, { status: stopped && e.message === 'Annulé' ? 'cancelled' : 'error', found, added, message: stopped ? e.message : `Erreur : ${e.message}`.slice(0, 300) });
     log('Fin de tâche :', e.message);
   } finally {
+    await sleep(8000);
     await ctx.close().catch(() => {});
   }
 }
