@@ -69,15 +69,20 @@ async function ensureTikTok(page, url, job) {
 }
 
 async function collectLinks(page, handles) {
-  const hrefs = await page.$$eval('a[href*="/@"]', as => as.map(a => a.getAttribute('href')));
-  for (const h of hrefs) { const m = (h || '').match(/\/@([\w.]+)/); if (m) handles.add(m[1]); }
+  for (let t = 0; t < 3; t++) {
+    try {
+      const hrefs = await page.$$eval('a[href*="/@"]', as => as.map(a => a.getAttribute('href')));
+      for (const h of hrefs) { const m = (h || '').match(/\/@([\w.]+)/); if (m) handles.add(m[1]); }
+      return;
+    } catch { await sleep(2500); }
+  }
 }
 
 async function tiktokHandles(page, tag, wanted, job) {
   const url = `https://www.tiktok.com/tag/${encodeURIComponent(tag)}`;
   await ensureTikTok(page, url, job);
   const handles = new Set();
-  await sleep(4000);
+  await sleep(5000);
   await collectLinks(page, handles);
   if (handles.size === 0) {
     // Rien d'affiché : probablement une connexion est demandée. On laisse la fenêtre ouverte.
@@ -98,7 +103,7 @@ async function tiktokHandles(page, tag, wanted, job) {
     }
   }
   for (let i = 0; i < 12 && handles.size < wanted; i++) {
-    await page.mouse.wheel(0, 2500);
+    await page.mouse.wheel(0, 2500).catch(() => {});
     await sleep(rand(1500, 2800));
     await collectLinks(page, handles);
   }
