@@ -1,18 +1,12 @@
 {
-  "name": "creatorflow",
+  "name": "creatorflow-worker",
   "version": "0.1.0",
   "private": true,
-  "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start -p 3000"
-  },
+  "type": "module",
+  "scripts": { "start": "node worker.js", "login": "node login.js" },
   "dependencies": {
-    "@supabase/supabase-js": "^2.119.1",
-    "next": "^14.2.35",
-    "nodemailer": "^10.6.0",
-    "papaparse": "^5.7.1",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@supabase/supabase-js": "^2.45.0",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.48.0"
   }
 }
