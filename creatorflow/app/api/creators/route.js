@@ -11,7 +11,7 @@ async function _POST(req) {
 }
 async function _PATCH(req) {
   const { id, ...f } = await req.json();
-  const allowed = ['name', 'platform', 'url', 'email', 'niche', 'audience', 'status', 'notes'];
+  const allowed = ['name', 'platform', 'url', 'email', 'niche', 'audience', 'status', 'notes', 'website'];
   const upd = {};
   for (const k of Object.keys(f)) if (allowed.includes(k)) upd[k] = f[k] === '' ? null : f[k];
   if (Object.keys(upd).length) await must(sb().from('creators').update(upd).eq('id', id));

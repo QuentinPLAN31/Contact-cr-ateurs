@@ -10,6 +10,7 @@ async function _POST(req) {
     name: pick(r, 'name', 'nom', 'chaine', 'channel'),
     email: pick(r, 'email', 'mail'),
     url: pick(r, 'url', 'lien', 'link'),
+    website: pick(r, 'website', 'site', 'bio'),
     niche: pick(r, 'niche', 'categorie', 'category'),
     audience: pick(r, 'audience', 'abonnes', 'followers', 'subscribers'),
     platform: pick(r, 'platform', 'plateforme') || 'youtube',

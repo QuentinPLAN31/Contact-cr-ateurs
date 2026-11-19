@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 import { mapItem, EMAIL_RE } from '@/lib/discover';
+import { firstWebsite } from '@/lib/findemail';
 const bad = (error, status = 400) => Response.json({ error }, { status });
 
 async function _GET(req) {
@@ -29,6 +30,7 @@ async function youtube(q) {
     name: ch.snippet.title, url: `https://www.youtube.com/channel/${ch.id}`, platform: 'youtube', niche: q,
     audience: ch.statistics.hiddenSubscriberCount ? 0 : parseInt(ch.statistics.subscriberCount || '0', 10),
     email: (ch.snippet.description.match(EMAIL_RE) || [''])[0],
+    website: firstWebsite(ch.snippet.description),
   }));
 }
 

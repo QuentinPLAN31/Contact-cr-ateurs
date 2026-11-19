@@ -35,7 +35,7 @@ export async function addCreators(list) {
     if (!name || (email && emails.has(email.toLowerCase())) || (url && urls.has(url))) { skipped++; continue; }
     if (email) emails.add(email.toLowerCase());
     if (url) urls.add(url);
-    rows.push({ name, platform: (c.platform || 'youtube').toLowerCase(), url, email, niche: (c.niche || '').trim() || null, audience: parseInt(c.audience, 10) || 0, notes: (c.notes || '').trim() || null });
+    rows.push({ website: (c.website || '').trim() || null, name, platform: (c.platform || 'youtube').toLowerCase(), url, email, niche: (c.niche || '').trim() || null, audience: parseInt(c.audience, 10) || 0, notes: (c.notes || '').trim() || null });
   }
   if (rows.length) await must(sb().from('creators').insert(rows));
   return { added: rows.length, skipped };

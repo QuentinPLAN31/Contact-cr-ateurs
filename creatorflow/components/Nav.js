@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-const LINKS = [['/', 'Pipeline'], ['/creators', 'Créateurs'], ['/sequence', 'Séquence'], ['/settings', 'Réglages']];
+const LINKS = [['/', 'Pipeline'], ['/creators', 'Créateurs'], ['/sequence', 'Séquence'], ['/scraper', 'Collecte'], ['/settings', 'Réglages']];
 const THEMES = { lime: '#d7f22c', violet: '#8b6cff', orange: '#ff7a1a', light: '#2f5bff' };
 
 export default function Nav() {

@@ -44,6 +44,18 @@ export default function Creators() {
   const onFile = e => { const f = e.target.files[0]; if (f) f.text().then(setCsv); };
   const patch = async (id, f) => { await post('/api/creators', { id, ...f }, 'PATCH'); load(); };
   const del = async id => { if (confirm('Supprimer ce créateur ?')) { await fetch('/api/creators?id=' + id, { method: 'DELETE' }); load(); } };
+  const findOne = async c => {
+    setMsg(`Recherche de l’email de ${c.name}…`);
+    const r = await (await fetch('/api/findemail?id=' + c.id)).json();
+    setMsg(r.error ? `${c.name} : ${r.error}` : r.best ? `${c.name} : ${r.best} trouvé et enregistré.` : `${c.name} : aucun email visible sur ce site.`);
+    load(); return !!r.best;
+  };
+  const findAll = async () => {
+    const todo = list.filter(c => c.website && !c.email); let ok = 0;
+    setBusy(true);
+    for (let i = 0; i < todo.length; i++) { setMsg(`Recherche des emails (${i + 1}/${todo.length})…`); if (await findOne(todo[i])) ok++; }
+    setMsg(`Recherche terminée : ${ok} email(s) trouvé(s) sur ${todo.length} site(s) visité(s).`); setBusy(false); load();
+  };
   const toggle = id => { const n = new Set(sel); n.has(id) ? n.delete(id) : n.add(id); setSel(n); };
   const sendSelected = async () => {
     const ids = [...sel]; if (!ids.length) return;
@@ -102,20 +114,22 @@ export default function Creators() {
         <div className="row" style={{ marginBottom: 10 }}>
           <h2 style={{ margin: 0, flex: '1 1 auto' }}>Ma liste ({list.length})</h2>
           <div className="fit" style={{ width: 170 }}><select value={pf} onChange={e => setPf(e.target.value)}><option value="all">Toutes plateformes</option>{PLATFORMS.map(p => <option key={p} value={p}>{LABELS[p]}</option>)}</select></div>
+          {list.some(c => c.website && !c.email) && <div className="fit"><button className="btn ghost" disabled={busy} onClick={findAll}>Trouver les emails manquants ({list.filter(c => c.website && !c.email).length})</button></div>}
           <div className="fit"><button className="btn" disabled={busy || !sel.size} onClick={sendSelected}>Envoyer l’étape 1 ({sel.size})</button></div>
         </div>
         <div className="scroll"><table>
-          <thead><tr><th></th><th>Nom</th><th>Réseau</th><th>Email</th><th>Niche</th><th>Abonnés</th><th>Statut</th><th></th></tr></thead>
+          <thead><tr><th></th><th>Nom</th><th>Réseau</th><th>Email</th><th>Site / lien de bio</th><th>Niche</th><th>Abonnés</th><th>Statut</th><th></th></tr></thead>
           <tbody>{list.filter(c => pf === 'all' || c.platform === pf).map(c => (
             <tr key={c.id}>
               <td><input type="checkbox" style={{ width: 'auto' }} disabled={!c.email || c.step > 0} checked={sel.has(c.id)} onChange={() => toggle(c.id)} /></td>
               <td>{c.url ? <a href={c.url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>{c.name}</a> : c.name}</td>
               <td>{LABELS[c.platform] || c.platform}</td>
               <td style={{ minWidth: 200 }}><input defaultValue={c.email || ''} placeholder="ajouter l’email" onBlur={e => e.target.value !== (c.email || '') && patch(c.id, { email: e.target.value })} /></td>
+              <td style={{ minWidth: 170 }}><input defaultValue={c.website || ''} placeholder="lien de bio" onBlur={e => e.target.value !== (c.website || '') && patch(c.id, { website: e.target.value })} /></td>
               <td>{c.niche || '—'}</td>
               <td>{c.audience ? c.audience.toLocaleString('fr-FR') : '—'}</td>
               <td><span className="tag">{c.status}{c.step ? ` · ${c.step}` : ''}</span></td>
-              <td style={{ whiteSpace: 'nowrap' }}>{c.step < 3 && <button className="btn ghost sm" onClick={() => setDm({ id: c.id, name: c.name, step: c.step + 1 })}>DM</button>} <button className="btn danger sm" onClick={() => del(c.id)}>Suppr.</button></td>
+              <td style={{ whiteSpace: 'nowrap' }}>{c.website && !c.email && <button className="btn ghost sm" disabled={busy} onClick={() => findOne(c)}>Email</button>} {c.step < 3 && <button className="btn ghost sm" onClick={() => setDm({ id: c.id, name: c.name, step: c.step + 1 })}>DM</button>} <button className="btn danger sm" onClick={() => del(c.id)}>Suppr.</button></td>
             </tr>))}</tbody>
         </table></div>
       </div>

@@ -1,3 +1,4 @@
+import { firstWebsite } from './findemail';
 export const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 
 export function mapItem(platform, it, q) {
@@ -12,5 +13,6 @@ export function mapItem(platform, it, q) {
   const bio = a.signature || it.biography || it.bio || it.headline || it.description || '';
   const email = it.email || it.businessEmail || (Array.isArray(it.emails) && it.emails[0]) || (String(bio).match(EMAIL_RE) || [''])[0];
   const audience = parseInt(a.fans ?? it.followersCount ?? it.followers ?? it.followerCount ?? 0, 10) || 0;
-  return { name, url, platform, niche: q, audience, email: email || '' };
+  const website = it.externalUrl || it.website || it.bioLink?.link || it.bioLink?.url || (Array.isArray(it.externalUrls) && it.externalUrls[0]?.url) || a.bioLink || firstWebsite(bio) || '';
+  return { name, url, platform, niche: q, audience, email: email || '', website: typeof website === 'string' ? website : '' };
 }
