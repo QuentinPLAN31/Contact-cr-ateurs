@@ -30,6 +30,18 @@ async function existingUrls() {
 
 class Stop extends Error {}
 
+// Réessaie quand TikTok recharge la page pendant qu'on la lit (ex. juste après la connexion)
+async function retryNav(fn, tries = 6) {
+  for (let i = 0; ; i++) {
+    try { return await fn(); }
+    catch (e) {
+      if (e instanceof Stop || i >= tries - 1 || !/context was destroyed|navigation|Navigation|interrupted|net::/i.test(e.message)) throw e;
+      log('La page a rechargé, nouvel essai…');
+      await sleep(4000);
+    }
+  }
+}
+
 // ---------- TikTok ----------
 async function waitCaptcha(page, job) {
   for (let i = 0; i < 40; i++) {
@@ -189,7 +201,7 @@ async function runJob(job) {
     for (const tag of tags) {
       if (added >= job.max_results) break;
       await setJob(job.id, { message: `Recherche de #${tag}…` });
-      const handles = job.platform === 'tiktok' ? await tiktokHandles(page, tag, perTag, job) : await igHandles(page, tag);
+      const handles = job.platform === 'tiktok' ? await retryNav(() => tiktokHandles(page, tag, perTag, job)) : await igHandles(page, tag);
       log(`#${tag} : ${handles.length} profils candidats`);
       for (const h of handles) {
         if (added >= job.max_results) break;
@@ -197,7 +209,7 @@ async function runJob(job) {
         const url = job.platform === 'tiktok' ? `https://www.tiktok.com/@${h}` : `https://www.instagram.com/${h}/`;
         if (seen.has(url)) continue;
         seen.add(url);
-        const p = job.platform === 'tiktok' ? await tiktokProfile(page, h, job) : await igProfile(page, h);
+        const p = job.platform === 'tiktok' ? await retryNav(() => tiktokProfile(page, h, job)) : await igProfile(page, h);
         found++;
         if (p && inRange(p.followers, job.min_followers, job.max_followers)) {
           const { error } = await sb.from('creators').insert({
