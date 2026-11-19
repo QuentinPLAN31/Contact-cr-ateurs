@@ -60,7 +60,7 @@ async function ensureTikTok(page, url, job) {
   }
   if (await needsLogin(page)) {
     await setJob(job.id, { message: 'TikTok bloque sans connexion : connecte-toi dans la fenêtre avec un compte secondaire. La session sera gardée.' });
-    for (let i = 0; i < 80; i++) { await sleep(3000); if (!(await needsLogin(page))) break; }
+    for (let i = 0; i < 600; i++) { await sleep(3000); if (!(await needsLogin(page))) break; }
     await page.goto(url, { waitUntil: 'domcontentloaded' });
     await sleep(4000);
     if (!(await hasError(page))) return;
@@ -82,8 +82,8 @@ async function tiktokHandles(page, tag, wanted, job) {
   if (handles.size === 0) {
     // Rien d'affiché : probablement une connexion est demandée. On laisse la fenêtre ouverte.
     log(`#${tag} : aucune vidéo visible. Connecte-toi à TikTok dans la fenêtre (compte secondaire).`);
-    await setJob(job.id, { message: `#${tag} : aucune vidéo visible → connecte-toi à TikTok dans la fenêtre ouverte (5 min max)` });
-    const end = Date.now() + 300000;
+    await setJob(job.id, { message: `#${tag} : aucune vidéo visible → connecte-toi à TikTok dans la fenêtre ouverte (30 min max)` });
+    const end = Date.now() + 1800000;
     while (Date.now() < end && handles.size === 0) {
       if (await cancelled(job.id)) throw new Stop('Annulé');
       await sleep(5000);
@@ -211,7 +211,7 @@ async function runJob(job) {
     await setJob(job.id, { status: stopped && e.message === 'Annulé' ? 'cancelled' : 'error', found, added, message: stopped ? e.message : `Erreur : ${e.message}`.slice(0, 300) });
     log('Fin de tâche :', e.message);
   } finally {
-    await sleep(8000);
+    await sleep(120000);
     await ctx.close().catch(() => {});
   }
 }
