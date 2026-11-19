@@ -182,17 +182,32 @@ async function igProfile(page, handle) {
   return { name: u.full_name || handle, handle, bio: u.biography || '', link: u.external_url || '', followers: u.edge_followed_by?.count || 0, email: u.business_email || '', url: `https://www.instagram.com/${handle}/` };
 }
 
+// ---------- Navigateur (reste ouvert entre les tâches) ----------
+let sharedCtx = null;
+async function getCtx(job) {
+  if (sharedCtx) { try { await sharedCtx.newPage().then(p => p.close()); return sharedCtx; } catch { sharedCtx = null; } }
+  const opts = { headless: HEADLESS === '1', viewport: null, locale: 'fr-FR' };
+  try {
+    sharedCtx = await chromium.launchPersistentContext(path.join(dir, 'browser-profile-chrome'), { ...opts, channel: 'chrome' });
+  } catch (e) {
+    if (/Executable doesn't exist|not found|chrome is not installed/i.test(e.message)) {
+      log('Chrome introuvable, utilisation de Chromium.');
+      sharedCtx = await chromium.launchPersistentContext(path.join(dir, 'browser-profile'), opts);
+    } else {
+      throw new Stop('Impossible d\'ouvrir Chrome : ferme toutes les fenêtres Chrome ouvertes par npm run login, puis relance la tâche.');
+    }
+  }
+  return sharedCtx;
+}
+
 // ---------- Tâche ----------
 async function runJob(job) {
   const tags = splitKeywords(job.query);
   const seen = await existingUrls();
   let found = 0, added = 0;
-  const opts = { headless: HEADLESS === '1', viewport: { width: 1280, height: 860 }, locale: 'fr-FR' };
-  let ctx;
-  try { ctx = await chromium.launchPersistentContext(path.join(dir, 'browser-profile-chrome'), { ...opts, channel: 'chrome' }); }
-  catch { log('Chrome introuvable, utilisation de Chromium.'); ctx = await chromium.launchPersistentContext(path.join(dir, 'browser-profile'), opts); }
-  const page = ctx.pages()[0] || await ctx.newPage();
   try {
+    const ctx = await getCtx(job);
+    const page = ctx.pages()[0] || await ctx.newPage();
     if (job.platform === 'instagram') await igEnsureLogin(page, job);
     const perTag = Math.max(10, Math.ceil(job.max_results / tags.length) * 3);
     for (const tag of tags) {
@@ -225,8 +240,7 @@ async function runJob(job) {
     await setJob(job.id, { status: stopped && e.message === 'Annulé' ? 'cancelled' : 'error', found, added, message: stopped ? e.message : `Erreur : ${e.message}`.slice(0, 300) });
     log('Fin de tâche :', e.message);
   } finally {
-    await sleep(120000);
-    await ctx.close().catch(() => {});
+    // La fenêtre reste ouverte volontairement (elle se ferme avec Ctrl+C dans la fenêtre noire)
   }
 }
 
@@ -244,4 +258,6 @@ async function main() {
     await runJob(job);
   }
 }
+process.on('unhandledRejection', e => log('Erreur :', e?.message || e));
+process.on('uncaughtException', e => log('Erreur :', e?.message || e));
 main();
