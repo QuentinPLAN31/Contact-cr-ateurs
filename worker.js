@@ -71,8 +71,8 @@ async function ensureTikTok(page, url, job) {
 async function collectLinks(page, handles) {
   for (let t = 0; t < 3; t++) {
     try {
-      const hrefs = await page.$$eval('a[href*="/@"]', as => as.map(a => a.getAttribute('href')));
-      for (const h of hrefs) { const m = (h || '').match(/\/@([\w.]+)/); if (m) handles.add(m[1]); }
+      const hrefs = await page.$$eval('a[href*="/video/"]', as => as.map(a => a.getAttribute('href')));
+      for (const h of hrefs) { const m = (h || '').match(/\/@([\w.]+)\/video\//); if (m) handles.add(m[1]); }
       return;
     } catch { await sleep(2500); }
   }
