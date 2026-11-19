@@ -105,9 +105,6 @@ async function tiktokHandles(page, tag, wanted, job) {
       if (await cancelled(job.id)) throw new Stop('Annulé');
       await sleep(5000);
       await collectLinks(page, handles);
-      if (handles.size === 0 && !page.url().includes('/tag/') && !page.url().includes('login')) {
-        await page.goto(url, { waitUntil: 'domcontentloaded' }).catch(() => {}); await sleep(4000);
-      }
     }
     if (handles.size === 0) {
       await page.screenshot({ path: 'debug-tiktok.png' }).catch(() => {});
